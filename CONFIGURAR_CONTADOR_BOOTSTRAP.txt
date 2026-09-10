@@ -1,0 +1,21 @@
+KREDI+ BACKEND MOBILE 2.2.0 - CONTADOR BOOTSTRAP
+
+El Contador es el único rol operativo que puede ser creado automáticamente por el backend.
+En Railway configura, como mínimo:
+  BOOTSTRAP_ACCOUNTANT_EMAIL=correo_del_contador
+  BOOTSTRAP_ACCOUNTANT_PASSWORD=clave_segura_de_8_o_mas_caracteres
+  BOOTSTRAP_ACCOUNTANT_PIN=PIN_DE_6_DIGITOS
+
+Opcionales:
+  BOOTSTRAP_ACCOUNTANT_USERNAME=contador.general
+  BOOTSTRAP_ACCOUNTANT_FIRST_NAME=Nombre
+  BOOTSTRAP_ACCOUNTANT_LAST_NAME=Apellido
+  BOOTSTRAP_ACCOUNTANT_PHONE=telefono
+
+Administradores y Almacenistas NO se crean mediante SEED_ADMIN_* en Backend Mobile 2.2.0.
+Se crean desde Personal dentro de la experiencia Contador.
+El Contador puede crear:
+- Administrador: GENERAL, SUPERVISOR, ANALYST, SUPPORT, AUDITOR o ANTIFRAUD.
+- Almacenista: WAREHOUSE.
+
+Todo personal creado desde la aplicación debe tener contraseña y PIN de 6 dígitos.

@@ -1,0 +1,51 @@
+{
+  "name": "krediplus-api-v2",
+  "version": "2.2.0",
+  "private": true,
+  "description": "Kredi+ API 2.2 móvil-first: Principal + deuda, seis niveles oficiales, Beneficiario, Administrador, Contador y Almacenista con paridad operativa y RBAC.",
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "start": "nest start",
+    "start:dev": "nest start --watch",
+    "start:prod": "node dist/main.js",
+    "prisma:generate": "prisma generate",
+    "prisma:push": "prisma db push",
+    "prisma:studio": "prisma studio",
+    "seed": "ts-node prisma/seed.ts",
+    "railway:start": "prisma db push --skip-generate && node dist/main.js",
+    "worker": "node dist/worker.js",
+    "worker:dev": "ts-node src/worker.ts"
+  },
+  "dependencies": {
+    "@nestjs/common": "^11.0.0",
+    "@nestjs/config": "^4.0.0",
+    "@nestjs/core": "^11.0.0",
+    "@nestjs/jwt": "^11.0.0",
+    "@nestjs/platform-express": "^11.0.0",
+    "@nestjs/swagger": "^11.0.0",
+    "@prisma/client": "^6.0.0",
+    "bcryptjs": "^3.0.0",
+    "class-transformer": "^0.5.1",
+    "class-validator": "^0.14.0",
+    "ioredis": "^5.4.0",
+    "bullmq": "^5.0.0",
+    "reflect-metadata": "^0.2.2",
+    "rxjs": "^7.8.1",
+    "@aws-sdk/client-s3": "^3.0.0",
+    "@aws-sdk/s3-request-presigner": "^3.0.0",
+    "xlsx": "^0.18.5",
+    "prisma": "^6.0.0"
+  },
+  "devDependencies": {
+    "@nestjs/cli": "^11.0.0",
+    "@nestjs/schematics": "^11.0.0",
+    "@types/express": "^5.0.0",
+    "@types/node": "^22.0.0",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.8.0",
+    "@types/multer": "^1.4.12"
+  },
+  "prisma": {
+    "seed": "ts-node prisma/seed.ts"
+  }
+}

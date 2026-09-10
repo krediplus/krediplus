@@ -1,0 +1,3 @@
+import { Controller, Get, Module } from '@nestjs/common'; import { CurrentUser } from '../common/auth'; import { PrismaService } from '../common/prisma.service';
+@Controller('referrals') class ReferralController {constructor(private db:PrismaService){} @Get('me')async me(@CurrentUser()u:any){let r=await this.db.referral.findFirst({where:{referrerId:u.sub,referredId:null}});if(!r)r=await this.db.referral.create({data:{referrerId:u.sub,code:`K${u.sub.toString(36).toUpperCase()}${Date.now().toString(36).slice(-4).toUpperCase()}`}});return r} @Get('history')history(@CurrentUser()u:any){return this.db.referral.findMany({where:{referrerId:u.sub},orderBy:{createdAt:'desc'}})} }
+@Module({controllers:[ReferralController]}) export class ReferralsModule {}

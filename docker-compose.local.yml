@@ -1,0 +1,24 @@
+services:
+  postgres:
+    image: postgres:17
+    environment:
+      POSTGRES_USER: kredi
+      POSTGRES_PASSWORD: kredi
+      POSTGRES_DB: krediplus_v2
+    ports: ["5433:5432"]
+    volumes: ["kredi_pg:/var/lib/postgresql/data"]
+  redis:
+    image: redis:7-alpine
+    ports: ["6380:6379"]
+  api:
+    build: .
+    environment:
+      PORT: 8080
+      DATABASE_URL: postgresql://kredi:kredi@postgres:5432/krediplus_v2?schema=public
+      JWT_SECRET: local-development-secret-change-me
+      REDIS_URL: redis://redis:6379
+      CORS_ORIGINS: "*"
+    ports: ["8080:8080"]
+    depends_on: [postgres,redis]
+volumes:
+  kredi_pg:

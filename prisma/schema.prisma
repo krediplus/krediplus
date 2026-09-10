@@ -1,0 +1,843 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserStatus {
+  PENDING
+  ACTIVE
+  SUSPENDED
+  BLOCKED
+  DELETED
+}
+
+enum PurchaseStatus {
+  DRAFT
+  PENDING_INITIAL_PAYMENT
+  PENDING
+  PAID
+  CANCELLED
+  REJECTED
+  REFUNDED
+}
+
+enum InstallmentStatus {
+  PENDING
+  REPORTED
+  PAID
+  OVERDUE
+  CANCELLED
+}
+
+enum PaymentStatus {
+  REPORTED
+  REVIEWING
+  APPROVED
+  REJECTED
+  REVERSED
+}
+
+enum VerificationStatus {
+  PENDING
+  REVIEWING
+  APPROVED
+  REJECTED
+}
+
+enum CreditLineStatus {
+  PENDING
+  ACTIVE
+  PAUSED
+  BLOCKED
+  CLOSED
+}
+
+enum CreditRequestStatus {
+  PENDING
+  REVIEWING
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
+enum LedgerDirection {
+  CREDIT
+  DEBIT
+}
+
+enum RewardStatus {
+  ACTIVE
+  INACTIVE
+  EXHAUSTED
+}
+
+enum ApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  EXPIRED
+}
+
+enum ReconciliationStatus {
+  PENDING
+  MATCHED
+  PROBABLE
+  MANUAL_REVIEW
+  DUPLICATE
+  UNRELATED
+  DIFFERENCE
+}
+
+model User {
+  id                  Int              @id @default(autoincrement())
+  username            String           @unique
+  email               String           @unique
+  phone               String?
+  firstName           String
+  middleName          String?
+  lastName            String
+  secondLastName      String?
+  nationalId          String?          @unique
+  birthDate           DateTime?
+  employmentType      String?
+  adminSubrole        String?
+  stateName           String?
+  municipalityName    String?
+  parishName          String?
+  communityName       String?
+  addressLine         String?
+  passwordHash        String
+  pinHash             String?
+  status              UserStatus       @default(PENDING)
+  emailVerifiedAt     DateTime?
+  phoneVerifiedAt     DateTime?
+  createdAt           DateTime         @default(now())
+  updatedAt           DateTime         @updatedAt
+  roles               UserRole[]
+  sessions            UserSession[]
+  addresses           Address[]
+  creditLines         CreditLine[]
+  purchases           Purchase[]
+  payments            Payment[]
+  verifications       Verification[]
+  loyalty             LoyaltyProfile?
+  points              PointsLedger[]
+  notifications       Notification[]
+  referralsSent       Referral[]       @relation("referrer")
+  referralReceived    Referral?        @relation("referred")
+  auditEvents         AuditLog[]       @relation("actor")
+  serviceAccounts     ServiceAccount[]
+  servicePayments     ServicePayment[]
+}
+
+model UserSession {
+  id               String    @id @default(cuid())
+  userId           Int
+  user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  deviceName       String?
+  refreshTokenHash String?
+  expiresAt        DateTime?
+  revokedAt        DateTime?
+  createdAt        DateTime  @default(now())
+}
+
+model Role {
+  id          Int              @id @default(autoincrement())
+  code        String           @unique
+  name        String
+  users       UserRole[]
+  permissions RolePermission[]
+}
+
+model Permission {
+  id          Int              @id @default(autoincrement())
+  code        String           @unique
+  description String?
+  roles       RolePermission[]
+}
+
+model UserRole {
+  userId Int
+  roleId Int
+  user   User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role   Role @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@id([userId, roleId])
+}
+
+model RolePermission {
+  roleId       Int
+  permissionId Int
+  role         Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, permissionId])
+}
+
+model Address {
+  id             Int      @id @default(autoincrement())
+  userId         Int
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  label          String   @default("Casa")
+  stateId        Int?
+  municipalityId Int?
+  parishId       Int?
+  communityId    Int?
+  stateName      String?
+  municipalityName String?
+  parishName     String?
+  communityName  String?
+  addressLine    String
+  formattedAddress String?
+  reference      String?
+  latitude       Decimal? @db.Decimal(10, 7)
+  longitude      Decimal? @db.Decimal(10, 7)
+  isPrimary      Boolean  @default(false)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
+
+model State {
+  id             Int            @id @default(autoincrement())
+  name           String         @unique
+  municipalities Municipality[]
+}
+
+model Municipality {
+  id       Int      @id @default(autoincrement())
+  stateId  Int
+  state    State    @relation(fields: [stateId], references: [id], onDelete: Cascade)
+  name     String
+  parishes Parish[]
+
+  @@unique([stateId, name])
+}
+
+model Parish {
+  id             Int         @id @default(autoincrement())
+  municipalityId Int
+  municipality   Municipality @relation(fields: [municipalityId], references: [id], onDelete: Cascade)
+  name           String
+  communities    Community[]
+
+  @@unique([municipalityId, name])
+}
+
+model Community {
+  id       Int     @id @default(autoincrement())
+  parishId Int
+  parish   Parish  @relation(fields: [parishId], references: [id], onDelete: Cascade)
+  name     String
+  active   Boolean @default(true)
+
+  @@unique([parishId, name])
+}
+
+model Bank {
+  id     Int     @id @default(autoincrement())
+  code   String  @unique
+  name   String
+  active Boolean @default(true)
+}
+
+model Store {
+  id             Int                   @id @default(autoincrement())
+  legalName      String
+  commercialName String
+  rif            String                @unique
+  logoUrl        String?
+  description    String?
+  active         Boolean               @default(true)
+  rating         Decimal?              @db.Decimal(3, 2)
+  categories     String[]
+  branches       Branch[]
+  products       Product[]
+  combos         Combo[]
+  purchases      Purchase[]
+  bankAccounts   BusinessBankAccount[]
+  createdAt      DateTime              @default(now())
+  updatedAt      DateTime              @updatedAt
+}
+
+model Branch {
+  id             Int      @id @default(autoincrement())
+  storeId        Int
+  store          Store    @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  name           String
+  address        String
+  stateId        Int?
+  municipalityId Int?
+  parishId       Int?
+  latitude       Decimal? @db.Decimal(10, 7)
+  longitude      Decimal? @db.Decimal(10, 7)
+  openingHours   Json?
+  active         Boolean  @default(true)
+}
+
+model Product {
+  id            Int            @id @default(autoincrement())
+  storeId       Int?
+  store         Store?         @relation(fields: [storeId], references: [id])
+  name          String
+  description   String?
+  category      String
+  classification String?
+  brand         String?
+  unit          String?
+  priceUsd      Decimal        @db.Decimal(12, 2)
+  pricingMode   String         @default("UNIT")
+  minimumStock  Int            @default(5)
+  stock         Int            @default(0)
+  active        Boolean        @default(true)
+  imageUrl      String?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  purchaseItems PurchaseItem[]
+  comboItems    ComboItem[]
+  inventoryMovements InventoryMovement[]
+}
+
+
+model InventoryMovement {
+  id            Int      @id @default(autoincrement())
+  productId     Int
+  product       Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  type          String
+  quantity      Int
+  previousStock Int
+  newStock      Int
+  reason        String
+  actorUserId   Int
+  createdAt     DateTime @default(now())
+
+  @@index([productId, createdAt])
+  @@index([actorUserId, createdAt])
+}
+
+model Combo {
+  id          Int         @id @default(autoincrement())
+  storeId     Int?
+  store       Store?      @relation(fields: [storeId], references: [id])
+  name        String
+  description String?
+  priceUsd    Decimal     @db.Decimal(12, 2)
+  active      Boolean     @default(true)
+  imageUrl    String?
+  items       ComboItem[]
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+}
+
+model ComboItem {
+  comboId   Int
+  productId Int
+  quantity  Int
+  combo     Combo   @relation(fields: [comboId], references: [id], onDelete: Cascade)
+  product   Product @relation(fields: [productId], references: [id])
+
+  @@id([comboId, productId])
+}
+
+model Fair {
+  id             Int      @id @default(autoincrement())
+  name           String
+  description    String?
+  startsAt       DateTime
+  endsAt         DateTime?
+  address        String?
+  stateId        Int?
+  municipalityId Int?
+  parishId       Int?
+  storeId        Int?
+  published      Boolean  @default(false)
+  finalized      Boolean  @default(false)
+  paymentConfig  Json?
+  bannerUrl      String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
+
+model Campaign {
+  id        Int      @id @default(autoincrement())
+  name      String
+  title     String
+  body      String?
+  imageUrl  String?
+  startsAt  DateTime?
+  endsAt    DateTime?
+  active    Boolean  @default(true)
+  placement String   @default("home")
+  createdAt DateTime @default(now())
+}
+
+model Banner {
+  id              Int      @id @default(autoincrement())
+  title           String?
+  imageUrl        String
+  destinationType String?
+  destinationId   Int?
+  active          Boolean  @default(true)
+  sortOrder       Int      @default(0)
+  startsAt        DateTime?
+  endsAt          DateTime?
+}
+
+model Promotion {
+  id           Int      @id @default(autoincrement())
+  name         String
+  targetType   String
+  targetId     Int?
+  discountType String
+  value        Decimal  @db.Decimal(12, 2)
+  startsAt     DateTime
+  endsAt       DateTime
+  active       Boolean  @default(true)
+  usageLimit   Int?
+}
+
+model CreditLine {
+  id              Int                 @id @default(autoincrement())
+  userId          Int
+  user            User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  code            String
+  name            String
+  limitUsd        Decimal             @db.Decimal(12, 2)
+  usedUsd         Decimal             @default(0) @db.Decimal(12, 2)
+  minInstallments Int                 @default(1)
+  maxInstallments Int                 @default(3)
+  initialPercent  Decimal             @default(60) @db.Decimal(5, 2)
+  status          CreditLineStatus    @default(PENDING)
+  rules           Json?
+  transactions    CreditTransaction[]
+  purchases       Purchase[]
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+
+  @@unique([userId, code])
+}
+
+model CreditTransaction {
+  id              Int             @id @default(autoincrement())
+  creditLineId    Int
+  creditLine      CreditLine      @relation(fields: [creditLineId], references: [id], onDelete: Cascade)
+  direction       LedgerDirection
+  amountUsd       Decimal         @db.Decimal(12, 2)
+  type            String
+  referenceType   String?
+  referenceId     String?
+  description     String?
+  balanceAfterUsd Decimal?        @db.Decimal(12, 2)
+  createdAt       DateTime        @default(now())
+}
+
+model CreditRequest {
+  id              Int                 @id @default(autoincrement())
+  userId          Int
+  amountUsd       Decimal             @db.Decimal(12, 2)
+  installments    Int
+  purpose         String?
+  status          CreditRequestStatus @default(PENDING)
+  lenderStoreId   Int?
+  receiverStoreId Int?
+  bankAccountId   Int?
+  reviewedBy      Int?
+  reviewNotes     String?
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+}
+
+model Purchase {
+  id                Int            @id @default(autoincrement())
+  userId            Int
+  user              User           @relation(fields: [userId], references: [id])
+  storeId           Int?
+  store             Store?         @relation(fields: [storeId], references: [id])
+  creditLineId      Int?
+  creditLine        CreditLine?     @relation(fields: [creditLineId], references: [id])
+  fairId            Int?
+  type              String         @default("CATALOG")
+  status            PurchaseStatus @default(DRAFT)
+  subtotalUsd       Decimal        @db.Decimal(12, 2)
+  initialPaymentUsd Decimal        @default(0) @db.Decimal(12, 2)
+  financedUsd       Decimal        @default(0) @db.Decimal(12, 2)
+  totalUsd          Decimal        @db.Decimal(12, 2)
+  metadata          Json?
+  warehouseStatus   String?
+  warehouseNotes    String?
+  warehouseUpdatedBy Int?
+  warehouseUpdatedAt DateTime?
+  items             PurchaseItem[]
+  installments      Installment[]
+  payments          Payment[]
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+}
+
+model PurchaseItem {
+  id           Int      @id @default(autoincrement())
+  purchaseId   Int
+  purchase     Purchase @relation(fields: [purchaseId], references: [id], onDelete: Cascade)
+  productId    Int?
+  product      Product? @relation(fields: [productId], references: [id])
+  description  String
+  quantity     Int
+  unitPriceUsd Decimal  @db.Decimal(12, 2)
+  totalUsd     Decimal  @db.Decimal(12, 2)
+}
+
+model Installment {
+  id         Int               @id @default(autoincrement())
+  purchaseId Int
+  purchase   Purchase          @relation(fields: [purchaseId], references: [id], onDelete: Cascade)
+  number     Int
+  amountUsd  Decimal           @db.Decimal(12, 2)
+  dueDate    DateTime
+  status     InstallmentStatus @default(PENDING)
+  payments   PaymentAllocation[]
+
+  @@unique([purchaseId, number])
+}
+
+model Payment {
+  id          Int                 @id @default(autoincrement())
+  userId      Int
+  user        User                @relation(fields: [userId], references: [id])
+  purchaseId  Int?
+  purchase    Purchase?           @relation(fields: [purchaseId], references: [id])
+  method      String
+  amountUsd   Decimal?            @db.Decimal(12, 2)
+  amountBs    Decimal?            @db.Decimal(16, 2)
+  bankCode    String?
+  phone       String?
+  reference   String?
+  proofUrl    String?
+  status      PaymentStatus       @default(REPORTED)
+  notes       String?
+  reviewedBy  Int?
+  reviewedAt  DateTime?
+  createdAt   DateTime            @default(now())
+  allocations PaymentAllocation[]
+}
+
+model PaymentAllocation {
+  id            Int         @id @default(autoincrement())
+  paymentId     Int
+  payment       Payment     @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  installmentId Int
+  installment   Installment @relation(fields: [installmentId], references: [id])
+  amountUsd     Decimal     @db.Decimal(12, 2)
+
+  @@unique([paymentId, installmentId])
+}
+
+model Verification {
+  id          Int                @id @default(autoincrement())
+  userId      Int
+  user        User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type        String
+  status      VerificationStatus @default(PENDING)
+  frontUrl    String?
+  backUrl     String?
+  selfieUrl   String?
+  quality     Json?
+  notes       String?
+  reviewedBy  Int?
+  reviewedAt  DateTime?
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+}
+
+model LoyaltyLevel {
+  id                    Int              @id @default(autoincrement())
+  code                  String           @unique
+  name                  String
+  sortOrder             Int              @unique
+  minPaidUsd            Decimal          @default(0) @db.Decimal(12, 2)
+  minOnTimeInstallments Int              @default(0)
+  principalLimitUsd     Decimal?         @db.Decimal(12, 2)
+  everydayLimitUsd      Decimal?         @db.Decimal(12, 2)
+  maxInstallments       Int              @default(3)
+  initialPercent        Decimal          @default(60) @db.Decimal(5, 2)
+  benefits              Json?
+  profiles              LoyaltyProfile[]
+}
+
+model LoyaltyProfile {
+  id                 Int          @id @default(autoincrement())
+  userId             Int          @unique
+  user               User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  levelId            Int
+  level              LoyaltyLevel @relation(fields: [levelId], references: [id])
+  points             Int          @default(0)
+  paidUsd            Decimal      @default(0) @db.Decimal(12, 2)
+  onTimeInstallments Int          @default(0)
+  updatedAt          DateTime     @updatedAt
+}
+
+model PointsLedger {
+  id            Int      @id @default(autoincrement())
+  userId        Int
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  delta         Int
+  reason        String
+  referenceType String?
+  referenceId   String?
+  balanceAfter  Int
+  createdAt     DateTime @default(now())
+}
+
+model Reward {
+  id          Int                @id @default(autoincrement())
+  name        String
+  description String?
+  imageUrl    String?
+  pointsCost  Int
+  status      RewardStatus       @default(ACTIVE)
+  minLevelId  Int?
+  stock       Int?
+  startsAt    DateTime?
+  endsAt      DateTime?
+  redemptions RewardRedemption[]
+}
+
+model RewardRedemption {
+  id         Int      @id @default(autoincrement())
+  rewardId   Int
+  reward     Reward   @relation(fields: [rewardId], references: [id])
+  userId     Int
+  pointsCost Int
+  code       String   @unique
+  status     String   @default("ACTIVE")
+  createdAt  DateTime @default(now())
+}
+
+model Referral {
+  id            Int       @id @default(autoincrement())
+  referrerId    Int
+  referrer      User      @relation("referrer", fields: [referrerId], references: [id])
+  referredId    Int?      @unique
+  referred      User?     @relation("referred", fields: [referredId], references: [id])
+  code          String    @unique
+  status        String    @default("INVITED")
+  pointsGranted Int       @default(0)
+  createdAt     DateTime  @default(now())
+  completedAt   DateTime?
+}
+
+model Notification {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      String
+  title     String
+  body      String
+  data      Json?
+  readAt    DateTime?
+  createdAt DateTime @default(now())
+}
+
+model BudgetAccount {
+  id          Int                @id @default(autoincrement())
+  code        String             @unique
+  name        String
+  balanceUsd  Decimal            @default(0) @db.Decimal(14, 2)
+  movements   BudgetMovement[]
+  allocations BudgetAllocation[]
+}
+
+model BudgetMovement {
+  id              Int           @id @default(autoincrement())
+  budgetAccountId Int
+  budgetAccount   BudgetAccount @relation(fields: [budgetAccountId], references: [id])
+  type            String
+  amountUsd       Decimal       @db.Decimal(14, 2)
+  description     String
+  reference       String?
+  actorUserId     Int
+  createdAt       DateTime      @default(now())
+}
+
+model BudgetAllocation {
+  id              Int            @id @default(autoincrement())
+  budgetAccountId Int
+  budgetAccount   BudgetAccount  @relation(fields: [budgetAccountId], references: [id])
+  targetUserId    Int
+  amountUsd       Decimal        @db.Decimal(14, 2)
+  description     String?
+  status          ApprovalStatus @default(APPROVED)
+  createdBy       Int
+  createdAt       DateTime       @default(now())
+}
+
+model BusinessBankAccount {
+  id            Int     @id @default(autoincrement())
+  storeId       Int
+  store         Store   @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  bankCode      String
+  accountType   String?
+  accountNumber String?
+  phone         String?
+  document      String?
+  method        String
+  active        Boolean @default(true)
+}
+
+model ReconciliationItem {
+  id           Int                  @id @default(autoincrement())
+  paymentId    Int?
+  bankReference String?
+  expectedUsd  Decimal?             @db.Decimal(12, 2)
+  reportedUsd  Decimal?             @db.Decimal(12, 2)
+  confidence   Decimal?             @db.Decimal(5, 2)
+  risk         Decimal?             @db.Decimal(5, 2)
+  status       ReconciliationStatus @default(PENDING)
+  observation  String?
+  reviewedBy   Int?
+  reviewedAt   DateTime?
+  createdAt    DateTime             @default(now())
+}
+
+model SensitiveApproval {
+  id          Int            @id @default(autoincrement())
+  actionType  String
+  payload     Json
+  requestedBy Int
+  reviewedBy  Int?
+  status      ApprovalStatus @default(PENDING)
+  reason      String?
+  createdAt   DateTime       @default(now())
+  reviewedAt  DateTime?
+}
+
+model Discount {
+  id         Int      @id @default(autoincrement())
+  name       String
+  code       String?
+  type       String
+  value      Decimal  @db.Decimal(12, 2)
+  startsAt   DateTime?
+  endsAt     DateTime?
+  active     Boolean  @default(true)
+  usageLimit Int?
+  usedCount  Int      @default(0)
+  createdBy  Int
+  createdAt  DateTime @default(now())
+}
+
+model ServiceProvider {
+  id          Int              @id @default(autoincrement())
+  code        String           @unique
+  name        String
+  type        String
+  description String?
+  active      Boolean          @default(true)
+  config      Json?
+  accounts    ServiceAccount[]
+  payments    ServicePayment[]
+}
+
+model ServiceAccount {
+  id           Int              @id @default(autoincrement())
+  userId       Int
+  user         User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  providerId   Int?
+  provider     ServiceProvider? @relation(fields: [providerId], references: [id])
+  providerName String?
+  identifier   String
+  alias        String?
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+}
+
+model ServicePayment {
+  id           Int              @id @default(autoincrement())
+  userId       Int
+  user         User             @relation(fields: [userId], references: [id])
+  providerId   Int?
+  provider     ServiceProvider? @relation(fields: [providerId], references: [id])
+  identifier   String
+  amountUsd    Decimal          @db.Decimal(12, 2)
+  status       String           @default("PENDING")
+  externalRef  String?
+  createdAt    DateTime         @default(now())
+}
+
+model AuditLog {
+  id          BigInt   @id @default(autoincrement())
+  actorUserId Int?
+  actor       User?    @relation("actor", fields: [actorUserId], references: [id])
+  action      String
+  entityType  String
+  entityId    String?
+  previous    Json?
+  next        Json?
+  reason      String?
+  ip          String?
+  createdAt   DateTime @default(now())
+
+  @@index([entityType, entityId])
+}
+
+model AppSetting {
+  key       String   @id
+  value     Json
+  updatedAt DateTime @updatedAt
+}
+
+model PasswordResetToken {
+  id        String    @id @default(cuid())
+  userId    Int
+  code      String
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId, code])
+}
+
+model QrRecord {
+  id        Int      @id @default(autoincrement())
+  userId    Int?
+  type      String
+  token     String   @unique
+  status    String   @default("CREATED")
+  payload   Json?
+  createdAt DateTime @default(now())
+  usedAt    DateTime?
+}
+
+model CommunityRequest {
+  id          Int      @id @default(autoincrement())
+  userId      Int?
+  communityId Int?
+  type        String
+  title       String
+  description String?
+  status      String   @default("PENDING")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Survey {
+  id        Int              @id @default(autoincrement())
+  code      String           @unique
+  title     String
+  active    Boolean          @default(true)
+  config    Json?
+  responses SurveyResponse[]
+  createdAt DateTime         @default(now())
+}
+
+model SurveyResponse {
+  id        Int      @id @default(autoincrement())
+  surveyId  Int
+  survey    Survey   @relation(fields: [surveyId], references: [id], onDelete: Cascade)
+  userId    Int?
+  score     Int?
+  payload   Json?
+  createdAt DateTime @default(now())
+}
